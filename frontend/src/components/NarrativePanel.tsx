@@ -3,13 +3,26 @@ import { useQuery } from '@tanstack/react-query'
 import { Mic, MicOff, Send, Star, Loader2, Zap, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getModels, streamNarrative, saveNarrativeFeedback, transcribeAudio, getWhisperStatus } from '@/api/client'
+import { getModels, streamNarrative, saveNarrativeFeedback } from '@/api/client'
 import type { PatientDetail } from '@/types'
 
 interface NarrativePanelProps {
   stayId: number
   patientDetail: PatientDetail
 }
+
+// Web Speech API types
+declare global {
+  interface Window {
+    SpeechRecognition: typeof SpeechRecognition
+    webkitSpeechRecognition: typeof SpeechRecognition
+  }
+}
+
+const SpeechRecognitionAPI =
+  typeof window !== 'undefined'
+    ? window.SpeechRecognition || window.webkitSpeechRecognition
+    : null
 
 export function NarrativePanel({ stayId, patientDetail }: NarrativePanelProps) {
   const [narrative, setNarrative] = useState('')
@@ -18,14 +31,14 @@ export function NarrativePanel({ stayId, patientDetail }: NarrativePanelProps) {
   const [rating, setRating] = useState(0)
   const [correctionNote, setCorrectionNote] = useState('')
   const [isRecording, setIsRecording] = useState(false)
-  const [isTranscribing, setIsTranscribing] = useState(false)
   const [feedbackSaved, setFeedbackSaved] = useState(false)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
 
   const abortRef = useRef<AbortController | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
+  const recognitionRef = useRef<InstanceType<typeof SpeechRecognition> | null>(null)
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const speechAvailable = SpeechRecognitionAPI !== null
 
   // Recording duration counter
   useEffect(() => {
@@ -44,13 +57,6 @@ export function NarrativePanel({ stayId, patientDetail }: NarrativePanelProps) {
     queryFn: getModels,
     staleTime: 60_000,
   })
-
-  const { data: whisperStatus } = useQuery({
-    queryKey: ['whisper-status'],
-    queryFn: getWhisperStatus,
-    staleTime: 5 * 60_000,
-  })
-  const whisperAvailable = whisperStatus?.available ?? false
 
   const currentModel = selectedModel || models[0] || ''
 
@@ -73,7 +79,7 @@ export function NarrativePanel({ stayId, patientDetail }: NarrativePanelProps) {
       )
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        setNarrative('[Error] Failed to connect to Ollama. Is it running?')
+        setNarrative('[Error] Failed to connect to the narrative service.')
       }
       setIsStreaming(false)
     }
@@ -91,35 +97,34 @@ export function NarrativePanel({ stayId, patientDetail }: NarrativePanelProps) {
     setFeedbackSaved(true)
   }, [stayId, rating, correctionNote, narrative, currentModel])
 
-  const handleStartRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      chunksRef.current = []
-      const mr = new MediaRecorder(stream)
-      mr.ondataavailable = (e) => chunksRef.current.push(e.data)
-      mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop())
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-        setIsTranscribing(true)
-        try {
-          const text = await transcribeAudio(blob)
-          setCorrectionNote((prev) => (prev ? prev + ' ' + text : text))
-        } catch {
-          setCorrectionNote((prev) => prev + ' [Transcription failed]')
-        } finally {
-          setIsTranscribing(false)
-        }
-      }
-      mr.start()
-      mediaRecorderRef.current = mr
-      setIsRecording(true)
-    } catch {
-      alert('Microphone access denied or not available.')
+  const handleStartRecording = useCallback(() => {
+    if (!SpeechRecognitionAPI) return
+
+    const recognition = new SpeechRecognitionAPI()
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.lang = 'en-US'
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const text = event.results[0][0].transcript
+      setCorrectionNote((prev) => (prev ? prev + ' ' + text : text))
     }
+
+    recognition.onerror = () => {
+      setIsRecording(false)
+    }
+
+    recognition.onend = () => {
+      setIsRecording(false)
+    }
+
+    recognitionRef.current = recognition
+    recognition.start()
+    setIsRecording(true)
   }, [])
 
   const handleStopRecording = useCallback(() => {
-    mediaRecorderRef.current?.stop()
+    recognitionRef.current?.stop()
     setIsRecording(false)
   }, [])
 
@@ -217,18 +222,16 @@ export function NarrativePanel({ stayId, patientDetail }: NarrativePanelProps) {
               <Button
                 variant="outline"
                 size="icon"
-                className={isRecording ? 'border-destructive text-destructive' : !whisperAvailable ? 'opacity-40 cursor-not-allowed' : ''}
-                onClick={whisperAvailable ? (isRecording ? handleStopRecording : handleStartRecording) : undefined}
+                className={isRecording ? 'border-destructive text-destructive' : !speechAvailable ? 'opacity-40 cursor-not-allowed' : ''}
+                onClick={speechAvailable ? (isRecording ? handleStopRecording : handleStartRecording) : undefined}
                 title={
-                  !whisperAvailable
-                    ? (whisperStatus?.message ?? 'Whisper not available')
+                  !speechAvailable
+                    ? 'Speech recognition requires Chrome or Safari'
                     : isRecording ? 'Stop recording' : 'Record voice note'
                 }
-                disabled={!whisperAvailable && !isRecording}
+                disabled={!speechAvailable}
               >
-                {isTranscribing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isRecording ? (
+                {isRecording ? (
                   <MicOff className="h-4 w-4" />
                 ) : (
                   <Mic className="h-4 w-4" />
@@ -242,9 +245,6 @@ export function NarrativePanel({ stayId, patientDetail }: NarrativePanelProps) {
                 <p className="text-xs text-destructive font-mono">
                   {String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')}
                   {' '}— click mic to stop
-                  {recordingSeconds >= 50 && (
-                    <span className="ml-2 font-semibold"> (max 60 s)</span>
-                  )}
                 </p>
               </div>
             )}
