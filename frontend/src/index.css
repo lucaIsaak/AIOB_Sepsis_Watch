@@ -10,7 +10,7 @@
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
 
-    --primary: 199 89% 40%;
+    --primary: 220 63% 17%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96%;
@@ -30,7 +30,7 @@
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 199 89% 40%;
+    --ring: 220 63% 17%;
 
     --radius: 0.5rem;
   }
@@ -50,7 +50,7 @@
 .card-blue-shadow {
   box-shadow:
     0 1px 3px 0 rgb(0 0 0 / 0.06),
-    0 4px 12px -2px rgb(2 132 199 / 0.10);
+    0 4px 12px -2px rgb(16 34 70 / 0.12);
 }
 
 /* Custom scrollbar */
