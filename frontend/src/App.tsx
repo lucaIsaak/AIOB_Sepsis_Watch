@@ -49,7 +49,7 @@ function Sidebar() {
             <Heart className="h-5 w-5 text-white fill-white" />
           </div>
           <div>
-            <p className="font-bold text-foreground text-base leading-tight">SepsisAlert</p>
+            <p className="font-bold text-foreground text-base leading-tight">SepsisWatch</p>
             <p className="text-[11px] text-muted-foreground leading-tight">ICU Early Warning</p>
           </div>
         </div>

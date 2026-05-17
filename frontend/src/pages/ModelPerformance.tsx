@@ -507,7 +507,7 @@ export function ModelPerformance() {
   }
 
   const aurocBarData = [
-    { name: 'SepsisAlert', auroc: stats.auroc },
+    { name: 'SepsisWatch', auroc: stats.auroc },
     { name: 'NEWS2', auroc: stats.news2_auroc },
   ]
 
@@ -540,14 +540,14 @@ export function ModelPerformance() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Model Performance</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          SepsisAlert vs. NEWS2 on MIMIC-IV holdout set
+          SepsisWatch vs. NEWS2 on MIMIC-IV holdout set
         </p>
       </div>
 
       {/* Top metrics — 5 cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <MetricCard
-          title="SepsisAlert AUROC"
+          title="SepsisWatch AUROC"
           value={modelInfo ? `${modelInfo.auroc.toFixed(4)}` : stats.auroc.toFixed(3)}
           description={modelInfo?.auroc_ci_95 ? `95% CI ${modelInfo.auroc_ci_95[0]}–${modelInfo.auroc_ci_95[1]} · held-out test set` : `+${((stats.auroc - stats.news2_auroc) * 100).toFixed(1)}pp vs NEWS2`}
           valueClassName="text-primary"
@@ -631,7 +631,7 @@ export function ModelPerformance() {
                 <Line
                   type="monotone"
                   dataKey="sepsis_tpr"
-                  name="SepsisAlert"
+                  name="SepsisWatch"
                   stroke="#0284c7"
                   dot={false}
                   strokeWidth={2}

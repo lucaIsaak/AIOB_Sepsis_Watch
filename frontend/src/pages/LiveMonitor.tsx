@@ -156,7 +156,7 @@ export function LiveMonitor() {
         <MetricCard
           title="Model AUROC"
           value={stats ? stats.auroc.toFixed(3) : '—'}
-          description="SepsisAlert vs NEWS2"
+          description="SepsisWatch vs NEWS2"
         />
       </div>
 
